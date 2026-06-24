@@ -6,6 +6,7 @@
 <title>Crest Deployment Dashboard</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
@@ -577,7 +578,7 @@ thead th.stk{z-index:10}
 // ══════════════════════════════════════════════
 // FIREBASE CONFIG  ← REPLACE WITH YOURS
 // ══════════════════════════════════════════════
-const firebaseConfig = {
+const FB_CONFIG = {
   apiKey: "AIzaSyCaroy1Acpg_hhWGtca8iuP58mZ3GTstPM",
   authDomain: "crest-deployment-26.firebaseapp.com",
   projectId: "crest-deployment-26",
@@ -642,6 +643,7 @@ function doLogin() {
 function doLogout() {
   curUser = null; isAdmin = false;
   if (unsubFn) { unsubFn(); unsubFn = null; }
+  if (firebase.auth && firebase.auth().currentUser) firebase.auth().signOut();
   document.getElementById('appScreen').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('li-pass').value = '';
@@ -676,25 +678,30 @@ function startApp() {
 function initFirebase() {
   try {
     if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
-    db = firebase.firestore();
     setSync('wait');
-    unsubFn = db.collection('crest').doc('main').onSnapshot(snap => {
-      if (snap.exists) {
-        const d = snap.data();
-        APP.sites       = d.sites       || [];
-        APP.history     = d.history     || [];
-        APP.monthly     = d.monthly     || [];
-        APP.managers    = d.managers    || {};
-        APP.activityLog = d.activityLog || [];
-      } else {
-        seedData();
-      }
-      curUser.mySites = (APP.managers[curUser.name] || {}).mySites || [];
-      setSync('live');
-      refreshTab();
-      checkBillingReminders();
-    }, err => {
-      setSync('off'); toast('Firebase error — offline mode', 'err');
+    firebase.auth().signInAnonymously().then(() => {
+      db = firebase.firestore();
+      unsubFn = db.collection('crest').doc('main').onSnapshot(snap => {
+        if (snap.exists) {
+          const d = snap.data();
+          APP.sites       = d.sites       || [];
+          APP.history     = d.history     || [];
+          APP.monthly     = d.monthly     || [];
+          APP.managers    = d.managers    || {};
+          APP.activityLog = d.activityLog || [];
+        } else {
+          seedData();
+        }
+        curUser.mySites = (APP.managers[curUser.name] || {}).mySites || [];
+        setSync('live');
+        refreshTab();
+        checkBillingReminders();
+      }, err => {
+        setSync('off'); toast('Firebase error — offline mode', 'err');
+        loadLocal(); refreshTab();
+      });
+    }).catch(err => {
+      setSync('off'); toast('Sign-in failed — offline mode', 'err');
       loadLocal(); refreshTab();
     });
   } catch(e) {
