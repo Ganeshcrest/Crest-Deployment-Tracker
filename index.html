@@ -241,6 +241,12 @@ thead th.stk{z-index:10;background:var(--surf2)}
     <div class="sc"><div class="slbl">Crest Staff</div><div class="sval" style="color:var(--crest)" id="stC">–</div><div class="ssub">Internal</div></div>
     <div class="sc"><div class="slbl">Total Shortage</div><div class="sval" style="color:var(--red)" id="stS">–</div><div class="ssub">To fill</div></div>
   </div>
+  <!-- CONTRACT ROW -->
+  <div class="stats s3" id="contractStatsRow" style="margin-bottom:20px">
+    <div class="sc"><div class="slbl">Contract Strength</div><div class="sval" style="color:var(--yellow)" id="stCon">–</div><div class="ssub">Total sanctioned</div></div>
+    <div class="sc"><div class="slbl">Deployed vs Contract</div><div class="sval" style="color:var(--accent)" id="stConDep">–</div><div class="ssub">Filled positions</div></div>
+    <div class="sc"><div class="slbl">Contract Gap</div><div class="sval" style="color:var(--orange)" id="stConGap">–</div><div class="ssub">Under-deployed</div></div>
+  </div>
   <div class="ctrl">
     <input class="srch" id="ovQ" placeholder="🔍 Search sites..." oninput="rOv()">
     <select class="srch" id="ovSort" onchange="rOv()" style="max-width:160px">
@@ -378,6 +384,18 @@ thead th.stk{z-index:10;background:var(--surf2)}
           <option value="26">Cycle 26–25 (26th prev → 25th current)</option>
           <option value="1">Cycle 1–30/31 (1st → last day)</option>
         </select>
+      </div>
+      <div class="fg"><label class="fl">Contract Strength (per designation)</label>
+        <div class="ib" style="margin-bottom:8px">👷 Enter the sanctioned/contracted headcount for each designation. Dashboard will show deployed vs contract and highlight gaps.</div>
+        <div id="contractToggle" style="margin-bottom:8px">
+          <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" id="showContract" style="accent-color:var(--accent)" onchange="toggleContractRows()"> Show contract strength inputs
+          </label>
+        </div>
+        <div id="contractSection" style="display:none">
+          <div class="dfh"><span>Designation</span><span style="color:var(--yellow)">Contract</span><span style="color:var(--muted)">Deployed</span></div>
+          <div class="drs" id="conRows"></div>
+        </div>
       </div>
       <div class="sep">📋 DEPLOYMENT</div>
       <div class="dfh"><span>Designation</span><span style="color:var(--vendor)">Vendor</span><span style="color:var(--crest)">Crest</span></div>
@@ -656,16 +674,19 @@ async function logAct(type, title, detail) {
 // ═══════════════════════════════════════════════
 const R=n=>Math.round(n*100)/100;
 function sT2(s) {
-  let dv=0,dc=0,sv=0,sc=0;
+  let dv=0,dc=0,sv=0,sc=0,con=0;
   for(const k in s.deploy){dv+=s.deploy[k].v||0;dc+=s.deploy[k].c||0;}
   for(const k in s.shortage){sv+=s.shortage[k].v||0;sc+=s.shortage[k].c||0;}
-  return{dv:R(dv),dc:R(dc),dt:R(dv+dc),sv:R(sv),sc:R(sc),st:R(sv+sc)};
+  for(const k in s.contract){con+=s.contract[k]||0;}
+  const dep=R(dv+dc);
+  const gap=con>0?R(con-dep):0;
+  return{dv:R(dv),dc:R(dc),dt:dep,sv:R(sv),sc:R(sc),st:R(sv+sc),con:R(con),gap:R(gap)};
 }
 function gT() {
-  // Calculate from LIVE Firestore data — not hardcoded!
-  let dv=0,dc=0,sv=0,sc=0;
-  for(const s of SITES){const t=sT2(s);dv+=t.dv;dc+=t.dc;sv+=t.sv;sc+=t.sc;}
-  return{n:SITES.length,dv:R(dv),dc:R(dc),dt:R(dv+dc),sv:R(sv),sc:R(sc),st:R(sv+sc)};
+  let dv=0,dc=0,sv=0,sc=0,con=0;
+  for(const s of SITES){const t=sT2(s);dv+=t.dv;dc+=t.dc;sv+=t.sv;sc+=t.sc;con+=t.con||0;}
+  const dt=R(dv+dc);
+  return{n:SITES.length,dv:R(dv),dc:R(dc),dt,sv:R(sv),sc:R(sc),st:R(sv+sc),con:R(con),gap:R(con>0?con-dt:0)};
 }
 function isMine(name){return(curUser.mySites||[]).includes(name);}
 function fmtT(ts){
@@ -754,6 +775,7 @@ function card(s) {
         ${deps.length>5?`<div class="more" onclick="oEdit('${s.id}')">+${deps.length-5} more</div>`:''}
       </div>`:'<div style="color:var(--muted);font-size:11px;text-align:center;padding:8px">No deployment data</div>'}
       ${t.st>0?`<div class="shs">⚠️ Shortage V:${t.sv} C:${t.sc} (${t.st} total)</div>`:''}
+      ${t.con>0?`<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);font-size:11px;display:flex;justify-content:space-between"><span style="color:var(--muted)">Contract: <strong style="color:var(--yellow)">${t.con}</strong></span><span style="color:var(--muted)">Deployed: <strong style="color:var(--accent)">${t.dt}</strong></span><span style="${t.gap>0?'color:var(--orange)':'color:var(--green)'}">Gap: <strong>${t.gap>0?t.gap:'✅'}</strong></span></div>`:''}
       ${s.updatedBy&&s.updatedBy!=='system'?`<div class="upd">Updated by ${s.updatedBy}</div>`:''}
     </div>
   </div>`;
@@ -770,6 +792,14 @@ function rOv() {
   document.getElementById('stV').textContent=gt.dv;
   document.getElementById('stC').textContent=gt.dc;
   document.getElementById('stS').textContent=gt.st;
+  // Contract stats
+  const hasCon=SITES.some(s=>Object.keys(s.contract||{}).length>0);
+  document.getElementById('contractStatsRow').style.display=hasCon?'':'none';
+  if(hasCon){
+    document.getElementById('stCon').textContent=gt.con;
+    document.getElementById('stConDep').textContent=gt.dt+' / '+gt.con;
+    document.getElementById('stConGap').textContent=gt.gap>0?gt.gap:'✅ 0';
+  }
   const q=(document.getElementById('ovQ').value||'').toLowerCase();
   const sort=document.getElementById('ovSort').value;
   let list=SITES.filter(s=>s.name.toLowerCase().includes(q));
@@ -1134,13 +1164,20 @@ function cRows(pfx,desigs){
   for(const d of desigs){const k=btoa(encodeURIComponent(d)).replace(/[^a-zA-Z0-9]/g,'_');const v=parseFloat(document.getElementById(pfx+'v_'+k)?.value)||0,c=parseFloat(document.getElementById(pfx+'c_'+k)?.value)||0;if(v>0||c>0)out[d]={v,c};}
   return out;
 }
-function oAdd(){editId=null;document.getElementById('mTi').textContent='Add New Site';document.getElementById('fNm').value='';document.getElementById('fCd').value='';document.getElementById('fCyc').value='';bRows({},{});oM('siteMod');}
+function oAdd(){editId=null;document.getElementById('mTi').textContent='Add New Site';document.getElementById('fNm').value='';document.getElementById('fCd').value='';document.getElementById('fCyc').value='';bRows({},{});bConRows({},{});
+  document.getElementById('showContract').checked=false;
+  toggleContractRows();
+  oM('siteMod');}
 function oEdit(id){
   editId=id;
   const s=SITES.find(x=>x.id===id);if(!s)return;
   document.getElementById('mTi').textContent='Edit: '+s.name;
   document.getElementById('fNm').value=s.name;document.getElementById('fCd').value=s.code||'';document.getElementById('fCyc').value=s.billingCycle||'';
-  bRows(s.deploy||{},s.shortage||{});oM('siteMod');
+  bRows(s.deploy||{},s.shortage||{});
+  bConRows(s.deploy||{},s.contract||{});
+  document.getElementById('showContract').checked=Object.keys(s.contract||{}).length>0;
+  toggleContractRows();
+  oM('siteMod');
 }
 async function savSite(){
   const btn=document.getElementById('savBtn');
@@ -1152,16 +1189,16 @@ async function savSite(){
   const s=editId?SITES.find(x=>x.id===editId):{};
   const aD=[...new Set([...DEP_D,...Object.keys(s.deploy||{})])];
   const aS=[...new Set([...SHO_D,...Object.keys(s.shortage||{})])];
-  const deploy=cRows('d',aD),shortage=cRows('s',aS);
+  const deploy=cRows('d',aD),shortage=cRows('s',aS),contract=cConRows();
   try{
     if(editId){
       // Update ONLY this one site document — no conflict with other users
-      await db.collection('sites').doc(editId).update({name,code,billingCycle:cycle,deploy,shortage,updatedBy:curUser.name,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      await db.collection('sites').doc(editId).update({name,code,billingCycle:cycle,deploy,shortage,contract,updatedBy:curUser.name,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
       await logAct('edit',`Edited: ${name}`,`Deployment updated · Cycle:${cycle||'none'} by ${curUser.name}`);
     }else{
       if(SITES.some(x=>x.name.toLowerCase()===name.toLowerCase())){toast('❗ Site already exists','err');btn.disabled=false;btn.textContent='✓ Save';return;}
       const newId=name.toLowerCase().replace(/[^a-z0-9]/g,'_').slice(0,45)+'_'+Date.now().toString(36);
-      await db.collection('sites').doc(newId).set({name,code,billingCycle:cycle,deploy,shortage,updatedBy:curUser.name,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      await db.collection('sites').doc(newId).set({name,code,billingCycle:cycle,deploy,shortage,contract,updatedBy:curUser.name,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
       await logAct('add',`Added site: ${name}`,`Code:${code||'—'} Cycle:${cycle||'none'} by ${curUser.name}`);
     }
     cM('siteMod');toast(`✅ "${name}" saved`,'ok');
@@ -1209,9 +1246,40 @@ function oMonSave(){const now=new Date();const mo=['January','February','March',
 async function doSaveMon(){
   const month=document.getElementById('mmMon').value,year=parseInt(document.getElementById('mmYr').value),notes=document.getElementById('mmNotes').value.trim();
   const gt=gT();
-  await db.collection('monthly').add({month,year,by:curUser.name,at:firebase.firestore.FieldValue.serverTimestamp(),nsites:gt.n,tv:gt.dv,tc:gt.dc,tt:gt.dt,ts:gt.st,notes,type:'manual',cycleLabel:'',rows:SITES.map(s=>{const t=sT2(s);return{n:s.name,code:s.code,dv:t.dv,dc:t.dc,dt:t.dt,sv:t.sv,sc:t.sc,st:t.st};})});
+  await db.collection('monthly').add({month,year,by:curUser.name,at:firebase.firestore.FieldValue.serverTimestamp(),nsites:gt.n,tv:gt.dv,tc:gt.dc,tt:gt.dt,ts:gt.st,notes,type:'manual',cycleLabel:'',rows:SITES.map(s=>{const t=sT2(s);return{n:s.name,code:s.code,dv:t.dv,dc:t.dc,dt:t.dt,sv:t.sv,sc:t.sc,st:t.st,con:t.con,gap:t.gap};})});
   await logAct('snapshot',`Snapshot: ${month} ${year}`,`${gt.n} sites T:${gt.dt} by ${curUser.name}${notes?' · '+notes:''}`);
   cM('monMod');toast(`✅ ${month} ${year} snapshot saved`,'ok');
+}
+
+// ═══════════════════════════════════════════════
+// CONTRACT HELPERS
+// ═══════════════════════════════════════════════
+function bConRows(deploy, contract) {
+  // Build contract input rows for all designations that have deployment
+  const allD=[...new Set([...DEP_D,...Object.keys(deploy)])];
+  document.getElementById('conRows').innerHTML=allD.map(d=>{
+    const dep=(deploy[d]?.v||0)+(deploy[d]?.c||0);
+    const k=btoa(encodeURIComponent(d)).replace(/[^a-zA-Z0-9]/g,'_');
+    return`<div class="drow" style="grid-template-columns:1fr 88px 80px">
+      <div class="drn">${d}</div>
+      <input class="ni" type="number" min="0" id="con_${k}" value="${contract[d]||''}" placeholder="0" style="border-color:var(--yellow)20">
+      <div class="ni" style="background:var(--surf2);color:var(--muted);text-align:center;border:none">${dep>0?dep:'–'}</div>
+    </div>`;
+  }).join('');
+}
+function cConRows() {
+  const out={};
+  const allD=[...new Set([...DEP_D])];
+  for(const d of allD){
+    const k=btoa(encodeURIComponent(d)).replace(/[^a-zA-Z0-9]/g,'_');
+    const v=parseFloat(document.getElementById('con_'+k)?.value)||0;
+    if(v>0)out[d]=v;
+  }
+  return out;
+}
+function toggleContractRows(){
+  const show=document.getElementById('showContract').checked;
+  document.getElementById('contractSection').style.display=show?'block':'none';
 }
 
 // ═══════════════════════════════════════════════
@@ -1231,9 +1299,9 @@ function dlExcel(){
   for(const s of SITES){const e=Object.entries(s.shortage||{}).filter(([,v])=>v.v>0||v.c>0);if(!e.length)continue;const t=sT2(s);e.forEach(([d,v],i)=>r2.push([i?'':s.name,i?'':s.code,d,v.v||0,v.c||0,(v.v||0)+(v.c||0)]));r2.push([s.name+' TOTAL','','',t.sv,t.sc,t.st]);r2.push([]);}
   r2.push(['GRAND TOTAL','','',gt.sv,gt.sc,gt.st]);
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(r2),'Shortages');
-  const r3=[['Site','Code','Cycle','V Deploy','C Deploy','Total Deploy','V Short','C Short','Total Short','Updated By']];
-  for(const s of SITES){const t=sT2(s),cy=s.billingCycle==='26'?'26-25':s.billingCycle==='1'?'1-30/31':'';r3.push([s.name,s.code,cy,t.dv,t.dc,t.dt,t.sv,t.sc,t.st,s.updatedBy||'']);}
-  r3.push([]);r3.push(['GRAND TOTAL','','',gt.dv,gt.dc,gt.dt,gt.sv,gt.sc,gt.st,'']);
+  const r3=[['Site','Code','Cycle','Contract','V Deploy','C Deploy','Total Deploy','Gap (Con-Dep)','V Short','C Short','Total Short','Updated By']];
+  for(const s of SITES){const t=sT2(s),cy=s.billingCycle==='26'?'26-25':s.billingCycle==='1'?'1-30/31':'';r3.push([s.name,s.code,cy,t.con||'',t.dv,t.dc,t.dt,t.con>0?t.gap:'',t.sv,t.sc,t.st,s.updatedBy||'']);}
+  r3.push([]);r3.push(['GRAND TOTAL','','',gt.con||'',gt.dv,gt.dc,gt.dt,gt.con>0?gt.gap:'',gt.sv,gt.sc,gt.st,'']);
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(r3),'Summary');
   XLSX.writeFile(wb,`Crest_${new Date().getFullYear()}_${String(new Date().getMonth()+1).padStart(2,'0')}.xlsx`);
   toast('⬇️ Excel downloaded','ok');
