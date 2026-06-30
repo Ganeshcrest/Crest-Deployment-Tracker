@@ -472,6 +472,53 @@ thead th.stk{z-index:10;background:var(--surf2)}
   </div>
 </div>
 
+<!-- DOWNLOAD MODAL -->
+<div class="ov" id="dlMod">
+  <div class="mo mosm">
+    <div class="mh"><div class="mti">⬇️ Download Excel</div><button class="xb" onclick="cM('dlMod')">×</button></div>
+    <div class="mbd">
+
+      <!-- Option 1: Current Deployment -->
+      <div style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px">📊 Current Deployment</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Live data — 3 sheets: Summary (site-wise), Designation-wise, Shortage</div>
+        <div style="background:var(--bg);border-radius:7px;padding:10px;margin-bottom:12px;font-size:11px;color:var(--muted)">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">Sheet 1 — Summary</div>
+          Sr. | Site Name | Site Code | Billing Cycle | <span style="color:var(--vendor)">Vendor</span> | <span style="color:var(--crest)">Crest</span> | Total | Shortage
+          <div style="font-weight:600;color:var(--text);margin:8px 0 4px">Sheet 2 — Designation-wise</div>
+          Site Name | Designation | <span style="color:var(--vendor)">Vendor</span> | <span style="color:var(--crest)">Crest</span> | Total
+          <div style="font-weight:600;color:var(--text);margin:8px 0 4px">Sheet 3 — Shortage</div>
+          Site Name | Designation | Vendor Short | Crest Short | Total
+        </div>
+        <button class="btn bp" style="width:100%" onclick="dlCurrent()">⬇️ Download Current Deployment</button>
+      </div>
+
+      <!-- Option 2: Contract Comparison -->
+      <div style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px">📋 Contract vs Deployment</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Compare contract strength vs actual deployed — shows gap per designation</div>
+        <div style="background:var(--bg);border-radius:7px;padding:10px;margin-bottom:12px;font-size:11px;color:var(--muted)">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">Sheet 1 — Designation-wise comparison</div>
+          Site | Designation | <span style="color:var(--yellow)">Contract</span> | <span style="color:var(--vendor)">Vendor</span> | <span style="color:var(--crest)">Crest</span> | Deployed | Gap | Status
+          <div style="font-weight:600;color:var(--text);margin:8px 0 4px">Sheet 2 — Site summary</div>
+          Site | Total Contract | Total Deployed | Gap | % Filled | Status
+        </div>
+        <button class="btn by" style="width:100%" onclick="dlContract()">⬇️ Download Contract Comparison</button>
+      </div>
+
+      <!-- Option 3: Previous Month -->
+      <div style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:16px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px">📅 Previous Month</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Download any saved monthly snapshot</div>
+        <div id="dlMonthList" style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
+        <div id="dlMonthEmpty" style="font-size:12px;color:var(--muted);text-align:center;padding:12px;display:none">No monthly snapshots saved yet.<br>Close a billing cycle to create one.</div>
+      </div>
+
+    </div>
+    <div class="mft"><button class="btn bg" onclick="cM('dlMod')">Close</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1283,28 +1330,181 @@ function toggleContractRows(){
 }
 
 // ═══════════════════════════════════════════════
-// EXCEL DOWNLOAD
+// EXCEL DOWNLOAD — 3 types
 // ═══════════════════════════════════════════════
+
+// Show download options modal
 function dlExcel(){
-  const wb=XLSX.utils.book_new(),gt=gT();
-  const r1=[['Site','Code','Billing Cycle','Designation','Vendor','Crest','Total']];
-  for(const s of SITES){const e=Object.entries(s.deploy||{}).filter(([,v])=>v.v>0||v.c>0),t=sT2(s),cy=s.billingCycle==='26'?'26-25':s.billingCycle==='1'?'1-30/31':'';
-    if(!e.length){r1.push([s.name,s.code,cy,'','','','']);continue;}
-    e.forEach(([d,v],i)=>r1.push([i?'':s.name,i?'':s.code,i?'':cy,d,v.v||0,v.c||0,(v.v||0)+(v.c||0)]));
-    r1.push([s.name+' TOTAL','','','',t.dv,t.dc,t.dt]);r1.push([]);
+  // Populate monthly list
+  const listEl=document.getElementById('dlMonthList');
+  const emptyEl=document.getElementById('dlMonthEmpty');
+  if(!MONTHLY.length){
+    listEl.style.display='none';emptyEl.style.display='block';
+  } else {
+    emptyEl.style.display='none';listEl.style.display='flex';
+    listEl.innerHTML=MONTHLY.map((m,i)=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:9px 12px">
+        <div>
+          <div style="font-size:13px;font-weight:600">${m.month} ${m.year}</div>
+          <div style="font-size:10px;color:var(--muted)">${m.type==='billing'?'📆 '+m.cycleLabel:'📸 Manual'} · ${m.nsites} sites · T:${m.tt} · by ${m.by}</div>
+        </div>
+        <button class="btn bp bsm" onclick="dlMonthly(${i});cM('dlMod')">⬇️</button>
+      </div>`).join('');
   }
-  r1.push(['GRAND TOTAL','','','',gt.dv,gt.dc,gt.dt]);
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(r1),'Deployment');
-  const r2=[['Site','Code','Designation','Vendor Short','Crest Short','Total']];
-  for(const s of SITES){const e=Object.entries(s.shortage||{}).filter(([,v])=>v.v>0||v.c>0);if(!e.length)continue;const t=sT2(s);e.forEach(([d,v],i)=>r2.push([i?'':s.name,i?'':s.code,d,v.v||0,v.c||0,(v.v||0)+(v.c||0)]));r2.push([s.name+' TOTAL','','',t.sv,t.sc,t.st]);r2.push([]);}
-  r2.push(['GRAND TOTAL','','',gt.sv,gt.sc,gt.st]);
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(r2),'Shortages');
-  const r3=[['Site','Code','Cycle','Contract','V Deploy','C Deploy','Total Deploy','Gap (Con-Dep)','V Short','C Short','Total Short','Updated By']];
-  for(const s of SITES){const t=sT2(s),cy=s.billingCycle==='26'?'26-25':s.billingCycle==='1'?'1-30/31':'';r3.push([s.name,s.code,cy,t.con||'',t.dv,t.dc,t.dt,t.con>0?t.gap:'',t.sv,t.sc,t.st,s.updatedBy||'']);}
-  r3.push([]);r3.push(['GRAND TOTAL','','',gt.con||'',gt.dv,gt.dc,gt.dt,gt.con>0?gt.gap:'',gt.sv,gt.sc,gt.st,'']);
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(r3),'Summary');
-  XLSX.writeFile(wb,`Crest_${new Date().getFullYear()}_${String(new Date().getMonth()+1).padStart(2,'0')}.xlsx`);
-  toast('⬇️ Excel downloaded','ok');
+  oM('dlMod');
+}
+
+// TYPE 1: Current Deployment (clean format)
+function dlCurrent(){
+  const wb=XLSX.utils.book_new();
+  const now=new Date();
+  const label=now.toLocaleString('default',{month:'long'})+' '+now.getFullYear();
+
+  // ── Sheet 1: Summary ──
+  // Header rows
+  const s1=[];
+  s1.push(['CREST DEPLOYMENT SUMMARY — '+label]);
+  s1.push([]);
+  s1.push(['Sr.','Site Name','Site Code','Billing Cycle','Vendor Staff','Crest Staff','Total Deployed','Shortage','Updated By']);
+  let sr=1;
+  let totV=0,totC=0,totSh=0;
+  for(const s of SITES){
+    const t=sT2(s),cy=s.billingCycle==='26'?'26–25':s.billingCycle==='1'?'1–30/31':'—';
+    s1.push([sr++,s.name,s.code||'—',cy,t.dv||0,t.dc||0,t.dt||0,t.st||0,s.updatedBy&&s.updatedBy!=='system'?s.updatedBy:'']);
+    totV+=t.dv;totC+=t.dc;totSh+=t.st;
+  }
+  s1.push([]);
+  s1.push(['','GRAND TOTAL','','',Math.round(totV*100)/100,Math.round(totC*100)/100,Math.round((totV+totC)*100)/100,Math.round(totSh*100)/100,'']);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s1),'Summary');
+
+  // ── Sheet 2: Designation-wise Deployment ──
+  const s2=[];
+  s2.push(['DESIGNATION-WISE DEPLOYMENT — '+label]);
+  s2.push([]);
+  s2.push(['Site Name','Site Code','Designation','Vendor','Crest','Total']);
+  for(const s of SITES){
+    const deps=Object.entries(s.deploy||{}).filter(([,v])=>v.v>0||v.c>0);
+    if(!deps.length) continue;
+    const t=sT2(s);
+    deps.forEach(([d,v],i)=>{
+      s2.push([i===0?s.name:'',i===0?(s.code||'—'):'',d,v.v||0,v.c||0,(v.v||0)+(v.c||0)]);
+    });
+    s2.push(['','','Site Total',t.dv,t.dc,t.dt]);
+    s2.push([]);
+  }
+  const gt=gT();
+  s2.push(['','','GRAND TOTAL',gt.dv,gt.dc,gt.dt]);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s2),'Designation-wise');
+
+  // ── Sheet 3: Shortage ──
+  const s3=[];
+  s3.push(['SHORTAGE REPORT — '+label]);
+  s3.push([]);
+  const hasSho=SITES.some(s=>sT2(s).st>0);
+  if(hasSho){
+    s3.push(['Site Name','Site Code','Designation','Vendor Short','Crest Short','Total Shortage']);
+    for(const s of SITES){
+      const sh=Object.entries(s.shortage||{}).filter(([,v])=>v.v>0||v.c>0);
+      if(!sh.length)continue;
+      const t=sT2(s);
+      sh.forEach(([d,v],i)=>{
+        s3.push([i===0?s.name:'',i===0?(s.code||'—'):'',d,v.v||0,v.c||0,(v.v||0)+(v.c||0)]);
+      });
+      s3.push(['','','Site Total',t.sv,t.sc,t.st]);
+      s3.push([]);
+    }
+    s3.push(['','','GRAND TOTAL',gt.sv,gt.sc,gt.st]);
+  } else {
+    s3.push(['No shortages recorded']);
+  }
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s3),'Shortage');
+
+  const fname=`Crest_Deployment_${now.getFullYear()}_${String(now.getMonth()+1).padStart(2,'0')}.xlsx`;
+  XLSX.writeFile(wb,fname);
+  toast('⬇️ Deployment sheet downloaded','ok');
+  cM('dlMod');
+}
+
+// TYPE 2: Contract Comparison
+function dlContract(){
+  const wb=XLSX.utils.book_new();
+  const now=new Date();
+  const label=now.toLocaleString('default',{month:'long'})+' '+now.getFullYear();
+  const hasCon=SITES.some(s=>Object.keys(s.contract||{}).length>0);
+  if(!hasCon){toast('No contract data filled yet. Please edit sites and fill contract strength.','err');return;}
+
+  // ── Sheet: Contract vs Deployed ──
+  const s1=[];
+  s1.push(['CONTRACT vs DEPLOYMENT COMPARISON — '+label]);
+  s1.push([]);
+  s1.push(['Sr.','Site Name','Site Code','Designation','Contract','Vendor','Crest','Total Deployed','Gap (Contract−Deployed)','Status']);
+  let sr=1;
+  for(const s of SITES){
+    const con=s.contract||{};
+    const dep=s.deploy||{};
+    const allD=[...new Set([...Object.keys(con),...Object.keys(dep).filter(d=>(dep[d].v||0)+(dep[d].c||0)>0)])];
+    if(!allD.length)continue;
+    allD.forEach((d,i)=>{
+      const c=con[d]||0,dv=dep[d]?.v||0,dc=dep[d]?.c||0,dt=dv+dc;
+      const gap=c>0?c-dt:null;
+      const status=c===0?'No contract':gap===0?'✅ Full':gap>0?'⚠️ Under':'➕ Over';
+      s1.push([i===0?sr:'',i===0?s.name:'',i===0?(s.code||'—'):'',d,c||'—',dv||0,dc||0,dt,gap!==null?gap:'—',status]);
+    });
+    sr++;
+    s1.push([]);
+  }
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s1),'Contract vs Deployed');
+
+  // ── Sheet 2: Site-level summary ──
+  const s2=[];
+  s2.push(['SITE-WISE CONTRACT SUMMARY — '+label]);
+  s2.push([]);
+  s2.push(['Sr.','Site Name','Site Code','Total Contract','Total Deployed','Gap','% Filled','Status']);
+  let sr2=1,totCon=0,totDep=0;
+  for(const s of SITES){
+    const t=sT2(s);
+    if(!t.con&&!t.dt)continue;
+    const pct=t.con>0?Math.round(t.dt/t.con*100):'—';
+    const status=!t.con?'No contract':t.gap===0?'✅ Full':t.gap>0?'⚠️ Under ('+t.gap+')':'➕ Over';
+    s2.push([sr2++,s.name,s.code||'—',t.con||'—',t.dt,t.con>0?t.gap:'—',t.con>0?pct+'%':'—',status]);
+    if(t.con){totCon+=t.con;totDep+=t.dt;}
+  }
+  s2.push([]);
+  s2.push(['','TOTAL','',totCon,totDep,totCon>0?totCon-totDep:'','','']);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s2),'Site Summary');
+
+  const fname=`Crest_Contract_vs_Deployment_${now.getFullYear()}_${String(now.getMonth()+1).padStart(2,'0')}.xlsx`;
+  XLSX.writeFile(wb,fname);
+  toast('⬇️ Contract comparison downloaded','ok');
+  cM('dlMod');
+}
+
+// TYPE 3: Previous Month download (from saved snapshots)
+function dlMonthly(idx){
+  const m=MONTHLY[idx];
+  if(!m){toast('No snapshot found','err');return;}
+  const wb=XLSX.utils.book_new();
+  const label=m.month+' '+m.year;
+
+  // Sheet 1: Summary
+  const s1=[];
+  s1.push(['CREST DEPLOYMENT — '+label]);
+  s1.push(['Saved by: '+m.by+' | Type: '+(m.type==='billing'?'Billing Close ('+m.cycleLabel+')':'Manual Snapshot')]);
+  if(m.notes)s1.push(['Notes: '+m.notes]);
+  s1.push([]);
+  s1.push(['Sr.','Site Name','Site Code','Vendor Staff','Crest Staff','Total Deployed','Shortage']);
+  let sr=1,totV=0,totC=0,totSh=0;
+  (m.rows||[]).forEach(r=>{
+    s1.push([sr++,r.n,r.code||'—',r.dv||0,r.dc||0,r.dt||0,r.st||0]);
+    totV+=r.dv||0;totC+=r.dc||0;totSh+=r.st||0;
+  });
+  s1.push([]);
+  s1.push(['','GRAND TOTAL','',totV,totC,totV+totC,totSh]);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s1),'Deployment '+label);
+
+  const fname=`Crest_${m.month}_${m.year}.xlsx`;
+  XLSX.writeFile(wb,fname);
+  toast('⬇️ '+label+' downloaded','ok');
 }
 </script>
 </body>
