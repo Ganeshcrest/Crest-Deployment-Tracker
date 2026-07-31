@@ -9,10 +9,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
-  --bg:#0d0f1a;--surf:#141728;--surf2:#1c2035;--surf3:#22263d;
-  --border:#2a3154;--accent:#4f8ef7;--accent2:#7c5cfc;
+  --bg:#1c2338;--surf:#252c47;--surf2:#2e3654;--surf3:#374063;
+  --border:#454f78;--accent:#4f8ef7;--accent2:#7c5cfc;
   --green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--orange:#f97316;--purple:#a855f7;
-  --text:#e8eaf6;--muted:#7b82a8;--vendor:#4f8ef7;--crest:#22c55e;
+  --text:#f0f2fa;--muted:#9aa1c4;--vendor:#4f8ef7;--crest:#22c55e;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
@@ -221,7 +221,7 @@ thead th.stk{z-index:10;background:var(--surf2)}
 </div>
 <div class="tabs">
   <button class="tab active" onclick="sT('overview')">📊 Overview</button>
-  <button class="tab" onclick="sT('mysites')">⭐ My Sites</button>
+  <button class="tab" id="mysitesTab" onclick="sT('mysites')">⭐ My Sites</button>
   <button class="tab" onclick="sT('allsites')">🏢 All Sites</button>
   <button class="tab" onclick="sT('table')">📋 Table View</button>
   <button class="tab" onclick="sT('shortage')">⚠️ Shortages</button>
@@ -241,6 +241,13 @@ thead th.stk{z-index:10;background:var(--surf2)}
     <div class="sc"><div class="slbl">Crest Staff</div><div class="sval" style="color:var(--crest)" id="stC">–</div><div class="ssub">Internal</div></div>
     <div class="sc"><div class="slbl">Total Shortage</div><div class="sval" style="color:var(--red)" id="stS">–</div><div class="ssub">To fill</div></div>
   </div>
+  <!-- PMS vs FMS ROW -->
+  <div class="stats s4" style="margin-bottom:20px">
+    <div class="sc" style="border-color:var(--accent)"><div class="slbl">PMS Deployed</div><div class="sval" style="color:var(--accent)" id="stPmsT">–</div><div class="ssub" id="stPmsSub">Vendor + Crest</div></div>
+    <div class="sc" style="border-color:var(--red)"><div class="slbl">PMS Shortage</div><div class="sval" style="color:var(--red)" id="stPmsS">–</div><div class="ssub">To fill</div></div>
+    <div class="sc" style="border-color:var(--purple)"><div class="slbl">FMS Deployed</div><div class="sval" style="color:var(--purple)" id="stFmsT">–</div><div class="ssub" id="stFmsSub">Vendor + Crest</div></div>
+    <div class="sc" style="border-color:var(--red)"><div class="slbl">FMS Shortage</div><div class="sval" style="color:var(--red)" id="stFmsS">–</div><div class="ssub">To fill</div></div>
+  </div>
   <!-- CONTRACT ROW -->
   <div class="stats s3" id="contractStatsRow" style="margin-bottom:20px">
     <div class="sc"><div class="slbl">Contract Strength</div><div class="sval" style="color:var(--yellow)" id="stCon">–</div><div class="ssub">Total sanctioned</div></div>
@@ -249,6 +256,16 @@ thead th.stk{z-index:10;background:var(--surf2)}
   </div>
   <div class="ctrl">
     <input class="srch" id="ovQ" placeholder="🔍 Search sites..." oninput="rOv()">
+    <select class="srch" id="ovType" onchange="rOv()" style="max-width:130px">
+      <option value="">All: PMS+FMS</option>
+      <option value="PMS">PMS only</option>
+      <option value="FMS">FMS only</option>
+    </select>
+    <select class="srch" id="ovLoc" onchange="rOv()" style="max-width:150px">
+      <option value="">All locations</option>
+      <option value="Mumbai">Mumbai</option>
+      <option value="Outside Mumbai">Outside Mumbai</option>
+    </select>
     <select class="srch" id="ovSort" onchange="rOv()" style="max-width:160px">
       <option value="name">Sort: A–Z</option>
       <option value="total">Sort: Total ↓</option>
@@ -270,6 +287,12 @@ thead th.stk{z-index:10;background:var(--surf2)}
       <button class="btn by bsm" onclick="oSel()">⭐ Manage My Sites</button>
       <button class="btn bp bsm" onclick="oAdd()">＋ Add Site</button>
     </div>
+  </div>
+  <div class="stats s4" id="myStats" style="margin-bottom:20px">
+    <div class="sc"><div class="slbl">My Sites</div><div class="sval" style="color:var(--accent)" id="myN">–</div></div>
+    <div class="sc"><div class="slbl">My Total Deployed</div><div class="sval" style="color:var(--yellow)" id="myT">–</div><div class="ssub">Vendor+Crest</div></div>
+    <div class="sc"><div class="slbl">My Shortage</div><div class="sval" style="color:var(--red)" id="myS">–</div><div class="ssub">To fill</div></div>
+    <div class="sc"><div class="slbl">Sites w/ Shortage</div><div class="sval" style="color:var(--orange)" id="mySN">–</div></div>
   </div>
   <div class="ctrl"><input class="srch" id="myQ" placeholder="🔍 Search my sites..." oninput="rMy()"></div>
   <div class="grid" id="myGrid"></div>
@@ -343,7 +366,7 @@ thead th.stk{z-index:10;background:var(--surf2)}
 
 <div id="p-admin" class="panel">
   <div class="ah">
-    <div style="font-size:18px;font-weight:800;color:#e9d5ff;margin-bottom:4px">🔐 Admin Panel · Ganesh Choudhary</div>
+    <div style="font-size:18px;font-weight:800;color:#e9d5ff;margin-bottom:4px">🔐 Admin Panel · Crest Admin</div>
     <div style="font-size:12px;color:#a855f7">Live — all changes by all managers reflected instantly</div>
   </div>
   <div class="stats s4" style="margin-bottom:20px">
@@ -378,6 +401,22 @@ thead th.stk{z-index:10;background:var(--surf2)}
         <div class="fg"><label class="fl">Site Name *</label><input class="fi" id="fNm" placeholder="e.g. CROWN SALES - PMS"></div>
         <div class="fg"><label class="fl">Site Code</label><input class="fi" id="fCd" placeholder="e.g. 11030100030001"></div>
       </div>
+      <div class="f2">
+        <div class="fg"><label class="fl">Service Type</label>
+          <select class="fi" id="fType">
+            <option value="">-- Not set --</option>
+            <option value="PMS">PMS (Property Management)</option>
+            <option value="FMS">FMS (Facility Management)</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Location</label>
+          <select class="fi" id="fLoc">
+            <option value="">-- Not set --</option>
+            <option value="Mumbai">Mumbai</option>
+            <option value="Outside Mumbai">Outside Mumbai</option>
+          </select>
+        </div>
+      </div>
       <div class="fg"><label class="fl">Billing Cycle</label>
         <select class="fi" id="fCyc">
           <option value="">-- Not set --</option>
@@ -398,9 +437,11 @@ thead th.stk{z-index:10;background:var(--surf2)}
         </div>
       </div>
       <div class="sep">📋 DEPLOYMENT</div>
+      <input class="fi" id="depSearch" placeholder="🔍 Search designation..." style="margin-bottom:8px" oninput="filterRows('depRows',this.value)">
       <div class="dfh"><span>Designation</span><span style="color:var(--vendor)">Vendor</span><span style="color:var(--crest)">Crest</span></div>
       <div class="drs" id="depRows"></div>
       <div class="sep">⚠️ SHORTAGE</div>
+      <input class="fi" id="shoSearch" placeholder="🔍 Search designation..." style="margin-bottom:8px" oninput="filterRows('shoRows',this.value)">
       <div class="dfh"><span>Designation</span><span style="color:#fca5a5">Vendor Short</span><span style="color:#fca5a5">Crest Short</span></div>
       <div class="drs" id="shoRows"></div>
     </div>
@@ -539,8 +580,8 @@ const firebaseConfig = {
 // PASSWORDS
 // ═══════════════════════════════════════════════
 const OPS_PASS   = "Crest@2026";
-const ADMIN_PASS = "Ganesh@admin";
-const ADMIN_NAME = "Ganesh Choudhary";
+const ADMIN_PASS = "Crest@admin";
+const ADMIN_NAME = "Crest Admin";
 
 // ═══════════════════════════════════════════════
 // SEED DATA (151 sites from Excel)
@@ -613,6 +654,7 @@ function startApp() {
   if(isAdmin){chip.className='uc uac';chip.innerHTML='🔐 '+curUser.name;}
   else{chip.className='uc';chip.innerHTML='👤 '+curUser.name;}
   document.getElementById('adminTab').style.display=isAdmin?'block':'none';
+  document.getElementById('mysitesTab').style.display=isAdmin?'none':'block';
   const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   document.getElementById('mbadge').textContent=mo[new Date().getMonth()]+' '+new Date().getFullYear();
   initFB();
@@ -800,11 +842,13 @@ function card(s) {
   const deps=Object.entries(s.deploy||{}).filter(([,v])=>v.v>0||v.c>0);
   const shown=deps.slice(0,5);
   const cyc=s.billingCycle==='26'?'<span class="ctag c26">📆 26–25</span>':s.billingCycle==='1'?'<span class="ctag c1">📆 1–30/31</span>':'';
+  const typTag=s.type==='PMS'?'<span class="ctag" style="background:#0f1a2a;color:var(--accent)">🏢 PMS</span>':s.type==='FMS'?'<span class="ctag" style="background:#2d0a4e;color:var(--purple)">🔧 FMS</span>':'';
+  const locTag=s.location?`<span class="ctag" style="background:var(--surf2);color:var(--muted)">📍 ${s.location}</span>`:'';
   return`<div class="card">
     <div class="ch">
       <div style="flex:1;min-width:0">
         <div class="cn">${mine?'⭐ ':''}${s.name}</div>
-        <div class="cm">${s.code||'—'}</div>${cyc}
+        <div class="cm">${s.code||'—'}</div>${cyc}${typTag}${locTag}
       </div>
       <div class="ca">
         <button class="ic ice" onclick="oEdit('${s.id}')" title="Edit">✏️</button>
@@ -847,9 +891,21 @@ function rOv() {
     document.getElementById('stConDep').textContent=gt.dt+' / '+gt.con;
     document.getElementById('stConGap').textContent=gt.gap>0?gt.gap:'✅ 0';
   }
+  // PMS vs FMS breakdown
+  const pmsSites=SITES.filter(s=>s.type==='PMS'), fmsSites=SITES.filter(s=>s.type==='FMS');
+  const pmsT=pmsSites.reduce((a,s)=>{const t=sT2(s);return{dt:a.dt+t.dt,st:a.st+t.st};},{dt:0,st:0});
+  const fmsT=fmsSites.reduce((a,s)=>{const t=sT2(s);return{dt:a.dt+t.dt,st:a.st+t.st};},{dt:0,st:0});
+  document.getElementById('stPmsT').textContent=R(pmsT.dt);
+  document.getElementById('stPmsS').textContent=R(pmsT.st);
+  document.getElementById('stPmsSub').textContent=pmsSites.length+' sites';
+  document.getElementById('stFmsT').textContent=R(fmsT.dt);
+  document.getElementById('stFmsS').textContent=R(fmsT.st);
+  document.getElementById('stFmsSub').textContent=fmsSites.length+' sites';
   const q=(document.getElementById('ovQ').value||'').toLowerCase();
+  const typeF=document.getElementById('ovType').value;
+  const locF=document.getElementById('ovLoc').value;
   const sort=document.getElementById('ovSort').value;
-  let list=SITES.filter(s=>s.name.toLowerCase().includes(q));
+  let list=SITES.filter(s=>s.name.toLowerCase().includes(q)&&(!typeF||s.type===typeF)&&(!locF||s.location===locF));
   if(sort==='total')list=[...list].sort((a,b)=>sT2(b).dt-sT2(a).dt);
   else if(sort==='shortage')list=[...list].sort((a,b)=>sT2(b).st-sT2(a).st);
   else if(sort==='mine')list=[...list].sort((a,b)=>(isMine(b.name)?1:0)-(isMine(a.name)?1:0));
@@ -865,8 +921,15 @@ function rMy() {
   document.getElementById('pAv').textContent=ini;
   document.getElementById('pNm').textContent=curUser.name;
   document.getElementById('pSb').textContent=`${(curUser.mySites||[]).length} sites assigned`;
+  const allMine=SITES.filter(s=>isMine(s.name));
+  let mt=0,ms=0,msn=0;
+  for(const s of allMine){const t=sT2(s);mt+=t.dt;ms+=t.st;if(t.st>0)msn++;}
+  document.getElementById('myN').textContent=allMine.length;
+  document.getElementById('myT').textContent=R(mt);
+  document.getElementById('myS').textContent=R(ms);
+  document.getElementById('mySN').textContent=msn;
   const q=(document.getElementById('myQ').value||'').toLowerCase();
-  const list=SITES.filter(s=>isMine(s.name)&&s.name.toLowerCase().includes(q));
+  const list=allMine.filter(s=>s.name.toLowerCase().includes(q));
   const grid=document.getElementById('myGrid');
   if(!list.length){grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div style="font-size:40px;margin-bottom:12px">⭐</div><div style="font-size:15px;margin-bottom:8px">No sites selected yet</div><button class="btn by" onclick="oSel()">⭐ Select My Sites</button></div>`;return;}
   grid.innerHTML=list.map(s=>card(s)).join('');
@@ -1133,13 +1196,22 @@ function rAdmin() {
   const mNames=Object.keys(MANAGERS);
   mEl.innerHTML=!mNames.length?'<div style="color:var(--muted);font-size:13px">No managers logged in yet.</div>':
     mNames.map(name=>{
-      const nsites=(MANAGERS[name].mySites||[]).length;
+      const mySiteNames=MANAGERS[name].mySites||[];
+      const nsites=mySiteNames.length;
       const acts=ACTIVITY.filter(a=>a.by===name).length;
       const last=ACTIVITY.find(a=>a.by===name);
+      const mgrSites=SITES.filter(s=>mySiteNames.includes(s.name));
+      let mt=0,ms=0;
+      for(const s of mgrSites){const t=sT2(s);mt+=t.dt;ms+=t.st;}
       return`<div class="mc2">
-        <div style="font-size:14px;font-weight:700;margin-bottom:4px">👤 ${name}</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="font-size:14px;font-weight:700;margin-bottom:4px">👤 ${name}</div>
+          <button class="ic ice" style="width:22px;height:22px;font-size:11px" onclick="oRenMgr('${name.replace(/'/g,"\'")}')" title="Rename">✏️</button>
+        </div>
         <div style="font-size:11px;color:var(--muted)">${nsites} sites assigned</div>
-        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px"><span style="color:var(--muted)">Actions</span><span style="color:var(--accent);font-weight:700">${acts}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px"><span style="color:var(--muted)">Deployed</span><span style="color:var(--yellow);font-weight:700">${R(mt)}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:12px"><span style="color:var(--muted)">Shortage</span><span style="color:var(--red);font-weight:700">${R(ms)}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:12px"><span style="color:var(--muted)">Actions</span><span style="color:var(--accent);font-weight:700">${acts}</span></div>
         <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px"><span style="color:var(--muted)">Last active</span><span style="color:var(--muted)">${last?fmtT(last.ts):'Never'}</span></div>
       </div>`;
     }).join('');
@@ -1198,20 +1270,47 @@ async function savSel(){
 }
 
 // ═══════════════════════════════════════════════
+// ADMIN — RENAME MANAGER (safe: copies assigned sites to new
+// doc, deletes old doc. Site deployment data and past activity
+// log entries are never touched or lost.)
+// ═══════════════════════════════════════════════
+async function oRenMgr(oldName){
+  const newName=prompt(`Rename manager "${oldName}" to:`,oldName);
+  if(!newName||!newName.trim()||newName.trim()===oldName)return;
+  const clean=newName.trim();
+  if(MANAGERS[clean]){toast('❗ A manager with that name already exists','err');return;}
+  try{
+    const mySites=(MANAGERS[oldName]||{}).mySites||[];
+    await db.collection('managers').doc(clean).set({mySites,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    await db.collection('managers').doc(oldName).delete();
+    await logAct('edit',`Manager renamed`,`"${oldName}" → "${clean}" by ${curUser.name}`);
+    toast(`✅ Renamed "${oldName}" → "${clean}"`,'ok');
+  }catch(e){toast('Error: '+e.message,'err');}
+}
+
+// ═══════════════════════════════════════════════
 // ADD / EDIT SITE
 // ═══════════════════════════════════════════════
 function bRows(dep,sho){
   const aD=[...new Set([...DEP_D,...Object.keys(dep)])];
   const aS=[...new Set([...SHO_D,...Object.keys(sho)])];
-  document.getElementById('depRows').innerHTML=aD.map(d=>{const k=btoa(encodeURIComponent(d)).replace(/[^a-zA-Z0-9]/g,'_');return`<div class="drow"><div class="drn">${d}</div><input class="ni" type="number" min="0" id="dv_${k}" value="${dep[d]?.v||''}" placeholder="0"><input class="ni" type="number" min="0" id="dc_${k}" value="${dep[d]?.c||''}" placeholder="0"></div>`;}).join('');
-  document.getElementById('shoRows').innerHTML=aS.map(d=>{const k=btoa(encodeURIComponent(d)).replace(/[^a-zA-Z0-9]/g,'_');return`<div class="drow"><div class="drn">${d}</div><input class="ni" type="number" min="0" id="sv_${k}" value="${sho[d]?.v||''}" placeholder="0"><input class="ni" type="number" min="0" id="sc_${k}" value="${sho[d]?.c||''}" placeholder="0"></div>`;}).join('');
+  document.getElementById('depRows').innerHTML=aD.map(d=>{const k=btoa(encodeURIComponent(d)).replace(/[^a-zA-Z0-9]/g,'_');return`<div class="drow" data-name="${d.toLowerCase()}"><div class="drn">${d}</div><input class="ni" type="number" min="0" id="dv_${k}" value="${dep[d]?.v||''}" placeholder="0"><input class="ni" type="number" min="0" id="dc_${k}" value="${dep[d]?.c||''}" placeholder="0"></div>`;}).join('');
+  document.getElementById('shoRows').innerHTML=aS.map(d=>{const k=btoa(encodeURIComponent(d)).replace(/[^a-zA-Z0-9]/g,'_');return`<div class="drow" data-name="${d.toLowerCase()}"><div class="drn">${d}</div><input class="ni" type="number" min="0" id="sv_${k}" value="${sho[d]?.v||''}" placeholder="0"><input class="ni" type="number" min="0" id="sc_${k}" value="${sho[d]?.c||''}" placeholder="0"></div>`;}).join('');
+  document.getElementById('depSearch').value='';
+  document.getElementById('shoSearch').value='';
+}
+function filterRows(containerId,q){
+  q=(q||'').toLowerCase();
+  document.querySelectorAll('#'+containerId+' .drow').forEach(row=>{
+    row.style.display=row.dataset.name.includes(q)?'':'none';
+  });
 }
 function cRows(pfx,desigs){
   const out={};
   for(const d of desigs){const k=btoa(encodeURIComponent(d)).replace(/[^a-zA-Z0-9]/g,'_');const v=parseFloat(document.getElementById(pfx+'v_'+k)?.value)||0,c=parseFloat(document.getElementById(pfx+'c_'+k)?.value)||0;if(v>0||c>0)out[d]={v,c};}
   return out;
 }
-function oAdd(){editId=null;document.getElementById('mTi').textContent='Add New Site';document.getElementById('fNm').value='';document.getElementById('fCd').value='';document.getElementById('fCyc').value='';bRows({},{});bConRows({},{});
+function oAdd(){editId=null;document.getElementById('mTi').textContent='Add New Site';document.getElementById('fNm').value='';document.getElementById('fCd').value='';document.getElementById('fCyc').value='';document.getElementById('fType').value='';document.getElementById('fLoc').value='';bRows({},{});bConRows({},{});
   document.getElementById('showContract').checked=false;
   toggleContractRows();
   oM('siteMod');}
@@ -1219,7 +1318,7 @@ function oEdit(id){
   editId=id;
   const s=SITES.find(x=>x.id===id);if(!s)return;
   document.getElementById('mTi').textContent='Edit: '+s.name;
-  document.getElementById('fNm').value=s.name;document.getElementById('fCd').value=s.code||'';document.getElementById('fCyc').value=s.billingCycle||'';
+  document.getElementById('fNm').value=s.name;document.getElementById('fCd').value=s.code||'';document.getElementById('fCyc').value=s.billingCycle||'';document.getElementById('fType').value=s.type||'';document.getElementById('fLoc').value=s.location||'';
   bRows(s.deploy||{},s.shortage||{});
   bConRows(s.deploy||{},s.contract||{});
   document.getElementById('showContract').checked=Object.keys(s.contract||{}).length>0;
@@ -1231,6 +1330,8 @@ async function savSite(){
   const name=document.getElementById('fNm').value.trim();
   const code=document.getElementById('fCd').value.trim();
   const cycle=document.getElementById('fCyc').value;
+  const type=document.getElementById('fType').value;
+  const location=document.getElementById('fLoc').value;
   if(!name){toast('❗ Site name required','err');return;}
   btn.disabled=true;btn.textContent='Saving...';
   const s=editId?SITES.find(x=>x.id===editId):{};
@@ -1239,13 +1340,13 @@ async function savSite(){
   const deploy=cRows('d',aD),shortage=cRows('s',aS),contract=cConRows();
   try{
     if(editId){
-      // Update ONLY this one site document — no conflict with other users
-      await db.collection('sites').doc(editId).update({name,code,billingCycle:cycle,deploy,shortage,contract,updatedBy:curUser.name,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      // Update ONLY this one site document — no conflict with other users, other fields untouched
+      await db.collection('sites').doc(editId).update({name,code,billingCycle:cycle,type,location,deploy,shortage,contract,updatedBy:curUser.name,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
       await logAct('edit',`Edited: ${name}`,`Deployment updated · Cycle:${cycle||'none'} by ${curUser.name}`);
     }else{
       if(SITES.some(x=>x.name.toLowerCase()===name.toLowerCase())){toast('❗ Site already exists','err');btn.disabled=false;btn.textContent='✓ Save';return;}
       const newId=name.toLowerCase().replace(/[^a-z0-9]/g,'_').slice(0,45)+'_'+Date.now().toString(36);
-      await db.collection('sites').doc(newId).set({name,code,billingCycle:cycle,deploy,shortage,contract,updatedBy:curUser.name,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      await db.collection('sites').doc(newId).set({name,code,billingCycle:cycle,type,location,deploy,shortage,contract,updatedBy:curUser.name,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
       await logAct('add',`Added site: ${name}`,`Code:${code||'—'} Cycle:${cycle||'none'} by ${curUser.name}`);
     }
     cM('siteMod');toast(`✅ "${name}" saved`,'ok');
