@@ -9,11 +9,22 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
-  --bg:#1c2338;--surf:#252c47;--surf2:#2e3654;--surf3:#374063;
-  --border:#454f78;--accent:#4f8ef7;--accent2:#7c5cfc;
+  --bg:#0d0f1a;--surf:#141728;--surf2:#1c2035;--surf3:#22263d;
+  --border:#2a3154;--accent:#4f8ef7;--accent2:#7c5cfc;
   --green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--orange:#f97316;--purple:#a855f7;
-  --text:#f0f2fa;--muted:#9aa1c4;--vendor:#4f8ef7;--crest:#22c55e;
+  --text:#e8eaf6;--muted:#7b82a8;--vendor:#4f8ef7;--crest:#22c55e;
 }
+body.light-theme{
+  --bg:#f4f6fb;--surf:#ffffff;--surf2:#eef1f8;--surf3:#e4e8f2;
+  --border:#dbe0ec;--accent:#3b6fd8;--accent2:#6c47e0;
+  --green:#16a34a;--red:#dc2626;--yellow:#c98a06;--orange:#ea580c;--purple:#9333ea;
+  --text:#1a2138;--muted:#64708f;--vendor:#3b6fd8;--crest:#16a34a;
+}
+body.light-theme .hdr,body.light-theme .tabs{background:#141a30}
+body.light-theme .tab{color:#9aa1c4}
+body.light-theme .tab.active{background:var(--surf);border-color:var(--border);color:var(--text)}
+body.light-theme .lt,body.light-theme .ls,body.light-theme .lm{color:#fff}
+body.light-theme .spill,body.light-theme .mb,body.light-theme .uc{background:#1c2338;border-color:#33395a;color:#e8eaf6}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
 /* LOGIN */
@@ -215,6 +226,7 @@ thead th.stk{z-index:10;background:var(--surf2)}
     <div class="spill"><span class="sd wait" id="sdot"></span><span id="stxt">Connecting...</span></div>
     <div class="mb" id="mbadge"></div>
     <div class="uc" id="uChip">👤 <span id="hUser"></span></div>
+    <button class="btn bg bsm" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">🌙 Dark</button>
     <button class="btn bg bsm" onclick="dlExcel()">⬇ Excel</button>
     <button class="btn bg bsm" onclick="doLogout()">Sign Out</button>
   </div>
@@ -242,11 +254,12 @@ thead th.stk{z-index:10;background:var(--surf2)}
     <div class="sc"><div class="slbl">Total Shortage</div><div class="sval" style="color:var(--red)" id="stS">–</div><div class="ssub">To fill</div></div>
   </div>
   <!-- PMS vs FMS ROW -->
-  <div class="stats s4" style="margin-bottom:20px">
+  <div class="stats s5" style="margin-bottom:20px">
     <div class="sc" style="border-color:var(--accent)"><div class="slbl">PMS Deployed</div><div class="sval" style="color:var(--accent)" id="stPmsT">–</div><div class="ssub" id="stPmsSub">Vendor + Crest</div></div>
     <div class="sc" style="border-color:var(--red)"><div class="slbl">PMS Shortage</div><div class="sval" style="color:var(--red)" id="stPmsS">–</div><div class="ssub">To fill</div></div>
     <div class="sc" style="border-color:var(--purple)"><div class="slbl">FMS Deployed</div><div class="sval" style="color:var(--purple)" id="stFmsT">–</div><div class="ssub" id="stFmsSub">Vendor + Crest</div></div>
     <div class="sc" style="border-color:var(--red)"><div class="slbl">FMS Shortage</div><div class="sval" style="color:var(--red)" id="stFmsS">–</div><div class="ssub">To fill</div></div>
+    <div class="sc" style="border-color:var(--muted)" id="stUnclWrap"><div class="slbl">Unclassified</div><div class="sval" style="color:var(--muted)" id="stUncl">–</div><div class="ssub">Needs PMS/FMS tag</div></div>
   </div>
   <!-- CONTRACT ROW -->
   <div class="stats s3" id="contractStatsRow" style="margin-bottom:20px">
@@ -521,17 +534,26 @@ thead th.stk{z-index:10;background:var(--surf2)}
 
       <!-- Option 1: Current Deployment -->
       <div style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px">
-        <div style="font-size:14px;font-weight:700;margin-bottom:4px">📊 Current Deployment</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Live data — 3 sheets: Summary (site-wise), Designation-wise, Shortage</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px">📊 Current Deployment — All Sites</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Live data — 4 sheets: Summary, By Designation (total per role), Designation-wise (site), Shortage</div>
         <div style="background:var(--bg);border-radius:7px;padding:10px;margin-bottom:12px;font-size:11px;color:var(--muted)">
           <div style="font-weight:600;color:var(--text);margin-bottom:4px">Sheet 1 — Summary</div>
-          Sr. | Site Name | Site Code | Billing Cycle | <span style="color:var(--vendor)">Vendor</span> | <span style="color:var(--crest)">Crest</span> | Total | Shortage
-          <div style="font-weight:600;color:var(--text);margin:8px 0 4px">Sheet 2 — Designation-wise</div>
+          Sr. | Site Name | Code | Type | Location | Cycle | <span style="color:var(--vendor)">Vendor</span> | <span style="color:var(--crest)">Crest</span> | Total | Shortage
+          <div style="font-weight:600;color:var(--text);margin:8px 0 4px">Sheet 2 — By Designation ⭐ new</div>
+          Designation total (e.g. all Housekeepers) → <span style="color:var(--vendor)">Vendor</span> vs <span style="color:var(--crest)">Crest</span>, with every site listed underneath
+          <div style="font-weight:600;color:var(--text);margin:8px 0 4px">Sheet 3 — Designation-wise (Site)</div>
           Site Name | Designation | <span style="color:var(--vendor)">Vendor</span> | <span style="color:var(--crest)">Crest</span> | Total
-          <div style="font-weight:600;color:var(--text);margin:8px 0 4px">Sheet 3 — Shortage</div>
+          <div style="font-weight:600;color:var(--text);margin:8px 0 4px">Sheet 4 — Shortage</div>
           Site Name | Designation | Vendor Short | Crest Short | Total
         </div>
-        <button class="btn bp" style="width:100%" onclick="dlCurrent()">⬇️ Download Current Deployment</button>
+        <button class="btn bp" style="width:100%" onclick="dlCurrent()">⬇️ Download All Sites</button>
+      </div>
+
+      <!-- Option 1b: My Sites Only -->
+      <div style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px">⭐ My Sites Only</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Same clean 4-sheet report, filtered to only the sites assigned to you</div>
+        <button class="btn bs2" style="width:100%" onclick="dlMySites()">⬇️ Download My Sites</button>
       </div>
 
       <!-- Option 2: Contract Comparison -->
@@ -641,7 +663,21 @@ function doLogout() {
 window.addEventListener('load',()=>{
   const s=localStorage.getItem('crest_ln');
   if(s) document.getElementById('liName').value=s;
+  applyTheme(localStorage.getItem('crest_theme')||'dark');
 });
+
+// ═══════════════════════════════════════════════
+// THEME — dark / light toggle, saved per-browser
+// ═══════════════════════════════════════════════
+function applyTheme(mode){
+  document.body.classList.toggle('light-theme',mode==='light');
+  const btn=document.getElementById('themeBtn');
+  if(btn) btn.innerHTML=mode==='light'?'☀️ Light':'🌙 Dark';
+  localStorage.setItem('crest_theme',mode);
+}
+function toggleTheme(){
+  applyTheme(document.body.classList.contains('light-theme')?'dark':'light');
+}
 
 // ═══════════════════════════════════════════════
 // APP START
@@ -893,6 +929,7 @@ function rOv() {
   }
   // PMS vs FMS breakdown
   const pmsSites=SITES.filter(s=>s.type==='PMS'), fmsSites=SITES.filter(s=>s.type==='FMS');
+  const unclSites=SITES.filter(s=>s.type!=='PMS'&&s.type!=='FMS');
   const pmsT=pmsSites.reduce((a,s)=>{const t=sT2(s);return{dt:a.dt+t.dt,st:a.st+t.st};},{dt:0,st:0});
   const fmsT=fmsSites.reduce((a,s)=>{const t=sT2(s);return{dt:a.dt+t.dt,st:a.st+t.st};},{dt:0,st:0});
   document.getElementById('stPmsT').textContent=R(pmsT.dt);
@@ -901,6 +938,8 @@ function rOv() {
   document.getElementById('stFmsT').textContent=R(fmsT.dt);
   document.getElementById('stFmsS').textContent=R(fmsT.st);
   document.getElementById('stFmsSub').textContent=fmsSites.length+' sites';
+  document.getElementById('stUncl').textContent=unclSites.length;
+  document.getElementById('stUnclWrap').style.display=unclSites.length>0?'':'none';
   const q=(document.getElementById('ovQ').value||'').toLowerCase();
   const typeF=document.getElementById('ovType').value;
   const locF=document.getElementById('ovLoc').value;
@@ -910,7 +949,25 @@ function rOv() {
   else if(sort==='shortage')list=[...list].sort((a,b)=>sT2(b).st-sT2(a).st);
   else if(sort==='mine')list=[...list].sort((a,b)=>(isMine(b.name)?1:0)-(isMine(a.name)?1:0));
   const grid=document.getElementById('ovGrid');
-  grid.innerHTML=list.length?list.map(s=>card(s)).join(''):'<div class="empty">No sites found</div>';
+  if(!list.length){grid.innerHTML='<div class="empty">No sites found</div>';return;}
+  // Hierarchy view: group into PMS / FMS / Unclassified sections (only when no type filter is active)
+  if(!typeF){
+    const groups=[
+      {label:'🏢 PMS Sites',color:'var(--accent)',items:list.filter(s=>s.type==='PMS')},
+      {label:'🔧 FMS Sites',color:'var(--purple)',items:list.filter(s=>s.type==='FMS')},
+      {label:'❔ Unclassified — needs Service Type tag',color:'var(--muted)',items:list.filter(s=>s.type!=='PMS'&&s.type!=='FMS')}
+    ];
+    grid.innerHTML='';
+    grid.style.display='block';
+    grid.innerHTML=groups.filter(g=>g.items.length).map(g=>`
+      <div style="font-size:14px;font-weight:700;color:${g.color};margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)">${g.label} <span style="color:var(--muted);font-weight:500;font-size:12px">(${g.items.length})</span></div>
+      <div class="grid">${g.items.map(s=>card(s)).join('')}</div>
+    `).join('');
+  }else{
+    grid.style.display='';
+    grid.className='grid';
+    grid.innerHTML=list.map(s=>card(s)).join('');
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -920,8 +977,11 @@ function rMy() {
   const ini=(curUser.name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
   document.getElementById('pAv').textContent=ini;
   document.getElementById('pNm').textContent=curUser.name;
-  document.getElementById('pSb').textContent=`${(curUser.mySites||[]).length} sites assigned`;
   const allMine=SITES.filter(s=>isMine(s.name));
+  const rawList=curUser.mySites||[];
+  const existingNames=new Set(SITES.map(s=>s.name));
+  const staleCount=rawList.filter(n=>!existingNames.has(n)).length;
+  document.getElementById('pSb').textContent=`${allMine.length} sites assigned`+(staleCount>0?` (⚠️ ${staleCount} outdated — re-select via "Manage My Sites")`:'');
   let mt=0,ms=0,msn=0;
   for(const s of allMine){const t=sT2(s);mt+=t.dt;ms+=t.st;if(t.st>0)msn++;}
   document.getElementById('myN').textContent=allMine.length;
@@ -1197,10 +1257,10 @@ function rAdmin() {
   mEl.innerHTML=!mNames.length?'<div style="color:var(--muted);font-size:13px">No managers logged in yet.</div>':
     mNames.map(name=>{
       const mySiteNames=MANAGERS[name].mySites||[];
-      const nsites=mySiteNames.length;
+      const mgrSites=SITES.filter(s=>mySiteNames.includes(s.name));
+      const nsites=mgrSites.length;
       const acts=ACTIVITY.filter(a=>a.by===name).length;
       const last=ACTIVITY.find(a=>a.by===name);
-      const mgrSites=SITES.filter(s=>mySiteNames.includes(s.name));
       let mt=0,ms=0;
       for(const s of mgrSites){const t=sT2(s);mt+=t.dt;ms+=t.st;}
       return`<div class="mc2">
@@ -1456,73 +1516,126 @@ function dlExcel(){
 }
 
 // TYPE 1: Current Deployment (clean format)
-function dlCurrent(){
+// Shared builder — siteList lets us reuse this for "All Sites" or "My Sites only"
+function buildDeploymentWorkbook(siteList,titleTag){
   const wb=XLSX.utils.book_new();
   const now=new Date();
   const label=now.toLocaleString('default',{month:'long'})+' '+now.getFullYear();
+  const setCols=(ws,widths)=>{ws['!cols']=widths.map(w=>({wch:w}));};
 
-  // ── Sheet 1: Summary ──
-  // Header rows
+  // ── Sheet 1: Summary (site-wise) ──
   const s1=[];
-  s1.push(['CREST DEPLOYMENT SUMMARY — '+label]);
+  s1.push(['CREST DEPLOYMENT SUMMARY'+titleTag+' — '+label]);
   s1.push([]);
-  s1.push(['Sr.','Site Name','Site Code','Billing Cycle','Vendor Staff','Crest Staff','Total Deployed','Shortage','Updated By']);
-  let sr=1;
-  let totV=0,totC=0,totSh=0;
-  for(const s of SITES){
+  s1.push(['Sr.','Site Name','Site Code','Type','Location','Billing Cycle','Vendor Staff','Crest Staff','Total Deployed','Shortage','Updated By']);
+  let sr=1,totV=0,totC=0,totSh=0;
+  for(const s of siteList){
     const t=sT2(s),cy=s.billingCycle==='26'?'26–25':s.billingCycle==='1'?'1–30/31':'—';
-    s1.push([sr++,s.name,s.code||'—',cy,t.dv||0,t.dc||0,t.dt||0,t.st||0,s.updatedBy&&s.updatedBy!=='system'?s.updatedBy:'']);
+    s1.push([sr++,s.name,s.code||'—',s.type||'—',s.location||'—',cy,t.dv||0,t.dc||0,t.dt||0,t.st||0,s.updatedBy&&s.updatedBy!=='system'?s.updatedBy:'']);
     totV+=t.dv;totC+=t.dc;totSh+=t.st;
   }
   s1.push([]);
-  s1.push(['','GRAND TOTAL','','',Math.round(totV*100)/100,Math.round(totC*100)/100,Math.round((totV+totC)*100)/100,Math.round(totSh*100)/100,'']);
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s1),'Summary');
+  s1.push(['','GRAND TOTAL','','','','',R(totV),R(totC),R(totV+totC),R(totSh),'']);
+  const ws1=XLSX.utils.aoa_to_sheet(s1);
+  setCols(ws1,[6,32,16,7,15,13,11,11,13,10,16]);
+  XLSX.utils.book_append_sheet(wb,ws1,'Summary');
 
-  // ── Sheet 2: Designation-wise Deployment ──
+  // ── Sheet 2: By Designation (grand total per role — Vendor vs Crest, across all sites) ──
   const s2=[];
-  s2.push(['DESIGNATION-WISE DEPLOYMENT — '+label]);
+  s2.push(['DEPLOYMENT BY DESIGNATION'+titleTag+' — '+label]);
+  s2.push(['Shows total headcount per designation (Vendor vs Crest) and exactly which sites they are deployed at.']);
   s2.push([]);
-  s2.push(['Site Name','Site Code','Designation','Vendor','Crest','Total']);
-  for(const s of SITES){
+  s2.push(['Designation','Site Name','Site Code','Vendor','Crest','Total']);
+  const desigMap={};
+  for(const s of siteList){
+    for(const[d,v]of Object.entries(s.deploy||{})){
+      if(!(v.v>0||v.c>0))continue;
+      if(!desigMap[d])desigMap[d]={v:0,c:0,rows:[]};
+      desigMap[d].v+=v.v||0;desigMap[d].c+=v.c||0;
+      desigMap[d].rows.push([s.name,s.code||'—',v.v||0,v.c||0,(v.v||0)+(v.c||0)]);
+    }
+  }
+  let gdV=0,gdC=0;
+  Object.keys(desigMap).sort().forEach(d=>{
+    const g=desigMap[d];
+    s2.push([`${d}  —  TOTAL`,'','',R(g.v),R(g.c),R(g.v+g.c)]);
+    g.rows.sort((a,b)=>a[0].localeCompare(b[0])).forEach(r=>s2.push(['',...r]));
+    s2.push([]);
+    gdV+=g.v;gdC+=g.c;
+  });
+  s2.push(['GRAND TOTAL — ALL DESIGNATIONS','','',R(gdV),R(gdC),R(gdV+gdC)]);
+  const ws2=XLSX.utils.aoa_to_sheet(s2);
+  setCols(ws2,[38,32,16,10,10,10]);
+  XLSX.utils.book_append_sheet(wb,ws2,'By Designation');
+
+  // ── Sheet 3: Designation-wise (site-wise breakdown, original format) ──
+  const s3=[];
+  s3.push(['DESIGNATION-WISE DEPLOYMENT (SITE-WISE)'+titleTag+' — '+label]);
+  s3.push([]);
+  s3.push(['Site Name','Site Code','Designation','Vendor','Crest','Total']);
+  for(const s of siteList){
     const deps=Object.entries(s.deploy||{}).filter(([,v])=>v.v>0||v.c>0);
     if(!deps.length) continue;
     const t=sT2(s);
     deps.forEach(([d,v],i)=>{
-      s2.push([i===0?s.name:'',i===0?(s.code||'—'):'',d,v.v||0,v.c||0,(v.v||0)+(v.c||0)]);
+      s3.push([i===0?s.name:'',i===0?(s.code||'—'):'',d,v.v||0,v.c||0,(v.v||0)+(v.c||0)]);
     });
-    s2.push(['','','Site Total',t.dv,t.dc,t.dt]);
-    s2.push([]);
+    s3.push(['','','Site Total',t.dv,t.dc,t.dt]);
+    s3.push([]);
   }
-  const gt=gT();
-  s2.push(['','','GRAND TOTAL',gt.dv,gt.dc,gt.dt]);
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s2),'Designation-wise');
+  s3.push(['','','GRAND TOTAL',R(totV),R(totC),R(totV+totC)]);
+  const ws3=XLSX.utils.aoa_to_sheet(s3);
+  setCols(ws3,[32,16,30,10,10,10]);
+  XLSX.utils.book_append_sheet(wb,ws3,'Designation-wise (Site)');
 
-  // ── Sheet 3: Shortage ──
-  const s3=[];
-  s3.push(['SHORTAGE REPORT — '+label]);
-  s3.push([]);
-  const hasSho=SITES.some(s=>sT2(s).st>0);
+  // ── Sheet 4: Shortage ──
+  const s4=[];
+  s4.push(['SHORTAGE REPORT'+titleTag+' — '+label]);
+  s4.push([]);
+  const hasSho=siteList.some(s=>sT2(s).st>0);
+  let totSV=0,totSC=0;
   if(hasSho){
-    s3.push(['Site Name','Site Code','Designation','Vendor Short','Crest Short','Total Shortage']);
-    for(const s of SITES){
+    s4.push(['Site Name','Site Code','Designation','Vendor Short','Crest Short','Total Shortage']);
+    for(const s of siteList){
       const sh=Object.entries(s.shortage||{}).filter(([,v])=>v.v>0||v.c>0);
       if(!sh.length)continue;
       const t=sT2(s);
       sh.forEach(([d,v],i)=>{
-        s3.push([i===0?s.name:'',i===0?(s.code||'—'):'',d,v.v||0,v.c||0,(v.v||0)+(v.c||0)]);
+        s4.push([i===0?s.name:'',i===0?(s.code||'—'):'',d,v.v||0,v.c||0,(v.v||0)+(v.c||0)]);
       });
-      s3.push(['','','Site Total',t.sv,t.sc,t.st]);
-      s3.push([]);
+      s4.push(['','','Site Total',t.sv,t.sc,t.st]);
+      s4.push([]);
+      totSV+=t.sv;totSC+=t.sc;
     }
-    s3.push(['','','GRAND TOTAL',gt.sv,gt.sc,gt.st]);
+    s4.push(['','','GRAND TOTAL',R(totSV),R(totSC),R(totSV+totSC)]);
   } else {
-    s3.push(['No shortages recorded']);
+    s4.push(['No shortages recorded']);
   }
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s3),'Shortage');
+  const ws4=XLSX.utils.aoa_to_sheet(s4);
+  setCols(ws4,[32,16,30,12,12,14]);
+  XLSX.utils.book_append_sheet(wb,ws4,'Shortage');
 
+  return wb;
+}
+
+function dlCurrent(){
+  const wb=buildDeploymentWorkbook(SITES,'');
+  const now=new Date();
   const fname=`Crest_Deployment_${now.getFullYear()}_${String(now.getMonth()+1).padStart(2,'0')}.xlsx`;
   XLSX.writeFile(wb,fname);
   toast('⬇️ Deployment sheet downloaded','ok');
+  cM('dlMod');
+}
+
+function dlMySites(){
+  const mySiteList=SITES.filter(s=>isMine(s.name));
+  if(!mySiteList.length){toast('❗ No sites assigned to you yet — use ⭐ Manage My Sites first','err');return;}
+  const wb=buildDeploymentWorkbook(mySiteList,' (My Sites)');
+  const now=new Date();
+  const safeName=curUser.name.replace(/[^a-zA-Z0-9]/g,'_');
+  const fname=`Crest_MySites_${safeName}_${now.getFullYear()}_${String(now.getMonth()+1).padStart(2,'0')}.xlsx`;
+  XLSX.writeFile(wb,fname);
+  toast(`⬇️ Your ${mySiteList.length} sites downloaded`,'ok');
   cM('dlMod');
 }
 
@@ -1555,6 +1668,8 @@ function dlContract(){
     s1.push([]);
   }
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s1),'Contract vs Deployed');
+  const ws1=wb.Sheets['Contract vs Deployed'];
+  ws1['!cols']=[{wch:5},{wch:30},{wch:16},{wch:30},{wch:10},{wch:9},{wch:9},{wch:13},{wch:14},{wch:14}];
 
   // ── Sheet 2: Site-level summary ──
   const s2=[];
@@ -1572,7 +1687,9 @@ function dlContract(){
   }
   s2.push([]);
   s2.push(['','TOTAL','',totCon,totDep,totCon>0?totCon-totDep:'','','']);
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s2),'Site Summary');
+  const ws2=XLSX.utils.aoa_to_sheet(s2);
+  ws2['!cols']=[{wch:5},{wch:32},{wch:16},{wch:14},{wch:14},{wch:9},{wch:10},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,ws2,'Site Summary');
 
   const fname=`Crest_Contract_vs_Deployment_${now.getFullYear()}_${String(now.getMonth()+1).padStart(2,'0')}.xlsx`;
   XLSX.writeFile(wb,fname);
@@ -1600,8 +1717,10 @@ function dlMonthly(idx){
     totV+=r.dv||0;totC+=r.dc||0;totSh+=r.st||0;
   });
   s1.push([]);
-  s1.push(['','GRAND TOTAL','',totV,totC,totV+totC,totSh]);
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s1),'Deployment '+label);
+  s1.push(['','GRAND TOTAL','',R(totV),R(totC),R(totV+totC),R(totSh)]);
+  const ws1=XLSX.utils.aoa_to_sheet(s1);
+  ws1['!cols']=[{wch:6},{wch:32},{wch:16},{wch:11},{wch:11},{wch:13},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Deployment '+label);
 
   const fname=`Crest_${m.month}_${m.year}.xlsx`;
   XLSX.writeFile(wb,fname);
